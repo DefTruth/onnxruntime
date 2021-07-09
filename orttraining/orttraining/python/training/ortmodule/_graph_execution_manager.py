@@ -6,11 +6,12 @@
 from . import _utils, _io, _logger, torch_cpp_extensions as _cpp_ext
 from ._custom_autograd_function_exporter import _post_process_after_export
 from ._graph_execution_interface import GraphExecutionInterface
-from onnxruntime.training.ortmodule import ONNX_OPSET_VERSION
+from ._fallback import _FallbackManager, _FallbackPolicy, ORTModuleDeviceException, ORTModuleTorchModelException
 
+from onnxruntime.training.ortmodule import ONNX_OPSET_VERSION
 from onnxruntime.capi import _pybind_state as C
 from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
-from abc import ABC, abstractmethod
+
 import copy
 import io
 import inspect
@@ -20,10 +21,11 @@ import torch
 import warnings
 from enum import IntFlag
 
+from abc import ABC, abstractmethod
 from torch.utils.cpp_extension import ROCM_HOME
 
 
-class RunStateInfo(object):
+class _RunStateInfo(object):
     def __init__(self, state, output_info):
         """
         :param state: State of partial run that contains intermediate tensors needed to resume the run later.
@@ -65,6 +67,14 @@ class GraphExecutionManager(GraphExecutionInterface):
         """
 
         super(GraphExecutionManager, self).__init__(module._original_module)
+
+        # Log level
+        self._loglevel = _logger.LogLevel.WARNING
+
+        # Fallback configuration must be in the beginning to catch initialization errors
+        # Training and Evaluation mode can override this setting independently of each other
+        self._fallback_manager = _FallbackManager(policy=_FallbackPolicy.FALLBACK_DISABLE,
+                                                  log_level=self._loglevel)
 
         # Original and flattened (tranformed) output module
         self._flattened_module = module
@@ -126,11 +136,8 @@ class GraphExecutionManager(GraphExecutionInterface):
         self._input_info = None
         self._module_output_schema = None
 
-        # Log level
-        self._loglevel = _logger.LogLevel.WARNING
-
-        # TODO: Single device support for now
-        self._device = _utils.get_device_from_module(module)
+        # Device is assigned on first forward to postpone fallback validation
+        self._device = None
 
         self._module_parameters = inspect.signature(self._original_module.forward).parameters.values()
 
@@ -154,10 +161,11 @@ class GraphExecutionManager(GraphExecutionInterface):
         self._enable_grad_acc_optimization = False
 
     def _validate_module_type(self, module):
-        """Raises a TypeError if the module is not a torch.nn.Module"""
+        """Raises a ORTModuleTorchModelException if the module is not a valid"""
 
         if not isinstance(module, torch.nn.Module):
-            raise TypeError(f"ORTModule only supports torch.nn.Module as input. {type(module)} is not supported.")
+            raise _FallbackManager.wrap_exception(ORTModuleTorchModelException,
+                                                  TypeError(f"ORTModule only supports torch.nn.Module as input. {type(module)} is not supported."))
 
     @staticmethod
     def execution_session_run_forward(execution_session, onnx_model, device, *inputs):
@@ -174,7 +182,7 @@ class GraphExecutionManager(GraphExecutionInterface):
         Returns:
             Returns a tuple (user_outputs, run_info):
             user_outputs: The model output (either torch.Tensor or a container of torch.Tensor)
-            run_info: A RunStateInfo which contains extra information about the execution of the graph
+            run_info: A _RunStateInfo which contains extra information about the execution of the graph
         """
 
         raise NotImplemented
@@ -250,8 +258,6 @@ class GraphExecutionManager(GraphExecutionInterface):
         self._set_device_from_module(inputs, kwargs)
         self._onnx_model = self._get_exported_model(*inputs, **kwargs)
         _cpp_ext._load_aten_op_executor_cpp_extension_if_needed(self._onnx_model)
-        if self._save_onnx:
-            onnx.save(self._onnx_model, self._save_onnx_prefix + '_torch_exporter.onnx')
 
         if self._run_symbolic_shape_infer:
             self._onnx_model = SymbolicShapeInference.infer_shapes(self._onnx_model, auto_merge=True, guess_output_rank=True)
@@ -306,10 +312,16 @@ class GraphExecutionManager(GraphExecutionInterface):
                                   export_params=False,
                                   keep_initializers_as_inputs=True)
         except RuntimeError as e:
-            raise RuntimeError('There was an error while exporting the PyTorch model to ONNX: {}'.format(e))
+            raise _FallbackManager.wrap_exception(ORTModuleONNXModelException,
+                                                  RuntimeError(f'There was an error while exporting the PyTorch model to ONNX: {e}'))
         exported_model = onnx.load_model_from_string(f.getvalue())
+        if self._save_onnx:
+            onnx.save(exported_model, self._save_onnx_prefix + '_torch_exporter.onnx')
 
         exported_model = _post_process_after_export(exported_model, self._enable_custom_autograd_function)
+
+        if self._save_onnx and self._enable_custom_autograd_function:
+            onnx.save(exported_model, self._save_onnx_prefix + 'torch_exporter_with_custom_autograd.onnx')
 
         return exported_model
 
@@ -321,7 +333,8 @@ class GraphExecutionManager(GraphExecutionInterface):
         if not self._device or self._device != device:
             self._device = device
             if not self._device:
-                raise RuntimeError('A device must be specified in the model or inputs!')
+                raise _FallbackManager.wrap_exception(ORTModuleDeviceException,
+                                                      RuntimeError('A device must be specified in the model or inputs!'))
 
     def _get_graph_transformer_config(self):
         graph_transformer_config = C.TrainingGraphTransformerConfiguration()
@@ -367,5 +380,5 @@ class GraphExecutionManager(GraphExecutionInterface):
 
         # Initializers can be cached and used since they are expected not to be re-instantiated
         # between forward calls.
-        self._graph_initializers = [param for name, param in self._flattened_module.named_parameters() 
+        self._graph_initializers = [param for name, param in self._flattened_module.named_parameters()
                                     if name in self._graph_initializer_names]
