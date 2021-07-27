@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <sstream>
+#include <filesystem>
 #include <unordered_set>
 #include <list>
 #include <string>
@@ -956,14 +957,10 @@ Status InferenceSession::PartitionOrtFormatModel(onnxruntime::Graph& graph,
 #endif
 
 #if defined(ENABLE_ORT_FORMAT_LOAD)
-template <typename T>
-static Status LoadOrtModelBytes(const std::basic_string<T>& model_uri,
-                                std::basic_string<ORTCHAR_T>& model_location,
+static Status LoadOrtModelBytes(const std::filesystem::path& model_uri,
                                 gsl::span<const uint8_t>& bytes,
                                 std::vector<uint8_t>& bytes_data_holder) {
-  size_t num_bytes = 0;
-  model_location = ToWideString(model_uri);
-  ORT_RETURN_IF_ERROR(Env::Default().GetFileLength(model_location.c_str(), num_bytes));
+  size_t num_bytes = std::filesystem::file_size(model_uri);
 
   bytes_data_holder.resize(num_bytes);
 
@@ -981,27 +978,18 @@ static Status LoadOrtModelBytes(const std::basic_string<T>& model_uri,
   return Status::OK();
 }
 
-Status InferenceSession::LoadOrtModel(const std::string& model_uri) {
+Status InferenceSession::LoadOrtModel(const std::filesystem::path& model_uri) {
+  model_location_ = model_uri;
   return LoadOrtModel(
       [&]() {
         ORT_RETURN_IF_ERROR(
-            LoadOrtModelBytes(model_uri, model_location_,
+            LoadOrtModelBytes(model_uri, 
                               ort_format_model_bytes_, ort_format_model_bytes_data_holder_));
         return Status::OK();
       });
 }
 
-#ifdef WIN32
-Status InferenceSession::LoadOrtModel(const std::wstring& model_uri) {
-  return LoadOrtModel(
-      [&]() {
-        ORT_RETURN_IF_ERROR(
-            LoadOrtModelBytes(model_uri, model_location_,
-                              ort_format_model_bytes_, ort_format_model_bytes_data_holder_));
-        return Status::OK();
-      });
-}
-#endif
+
 
 Status InferenceSession::LoadOrtModel(const void* model_data, int model_data_len) {
   return LoadOrtModel([&]() {

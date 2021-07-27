@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 #include <memory>
+#include <filesystem>
 #include "core/common/logging/logging.h"
 #include "core/flatbuffers/schema/ort.fbs.h"
 #include "core/flatbuffers/flatbuffers_utils.h"

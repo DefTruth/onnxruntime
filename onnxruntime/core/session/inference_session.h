@@ -5,7 +5,7 @@
 
 #include <string>
 #include <unordered_map>
-
+#include <filesystem>
 #include "core/common/common.h"
 #include "core/common/logging/logging.h"
 #include "core/common/profiler.h"
@@ -486,7 +486,7 @@ class InferenceSession {
   std::unordered_set<std::string> model_output_names_;
 
   // The file path of where the model was loaded. e.g. /tmp/test_squeezenet/model.onnx
-  std::basic_string<ORTCHAR_T> model_location_;
+  std::filesystem::path model_location_;
 
   // The list of execution providers.
   ExecutionProviders execution_providers_;
@@ -517,10 +517,8 @@ class InferenceSession {
     * @param model_uri absolute path of the model file.
     * @return OK if success.
     */
-  common::Status LoadOrtModel(const std::string& model_uri) ORT_MUST_USE_RESULT;
-#ifdef _WIN32
-  common::Status LoadOrtModel(const std::wstring& model_uri) ORT_MUST_USE_RESULT;
-#endif
+  common::Status LoadOrtModel(const std::filesystem::path& model_uri) ORT_MUST_USE_RESULT;
+
 
   /**
     * Load an ORT format model.
