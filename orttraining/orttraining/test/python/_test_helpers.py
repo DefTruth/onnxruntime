@@ -14,17 +14,13 @@ except ImportError:
     # Some pipelines do not contain ORTModule
     pass
 except Exception as e:
-    print('_test_helpers.py: except try 1 exception')
     try:
-        print('_test_helpers.py: try 2')
         from onnxruntime.training.ortmodule._fallback import ORTModuleInitException
         if isinstance(e, ORTModuleInitException):
-            print('_test_helpers.py: try 2 import ok')
             # ORTModule is present but not ready to run
             # That is OK because this file is also used by ORTTrainer tests
             pass
-    except Exception as ee:
-        print(f'_test_helpers.py: except try 2 {ee}')
+    except Exception:
         # ORTModule not present
         pass
 

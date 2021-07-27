@@ -63,35 +63,26 @@ def validate_build_package_info():
 
     has_ortmodule = False
     try:
-        print('try 1')
         from onnxruntime.training.ortmodule import ORTModule # noqa
         has_ortmodule = True
     except ImportError:
-        print('except try 1 import error')
         # ORTModule not present
-        pass
+        has_ortmodule = False
     except Exception as e:
         # this may happen if Cuda is not installed, we want to raise it after
         # for any exception other than not having ortmodule, we want to continue
         # device version validation and raise the exception after.
-        print('except try 1 exception')
         try:
-            print('try 2')
             from onnxruntime.training.ortmodule._fallback import ORTModuleInitException
             if isinstance(e, ORTModuleInitException):
-                print('try 2 import ok')
                 # ORTModule is present but not ready to run yet
                 has_ortmodule = True
-        except Exception as ee:
-            print(f'except try 2 {ee}')
+        except Exception:
             # ORTModule not present
-            pass
+            has_ortmodule = False
 
         if not has_ortmodule:
-            print('last word: DOE NOT HAVE ORTModule')
             import_ortmodule_exception = e
-        else:
-            print('last word: HAVE ORTModule')
 
     package_name = ''
     version = ''
@@ -138,8 +129,6 @@ def validate_build_package_info():
             warnings.warn('WARNING: failed to collect onnxruntime version and build info')
             print(e)
 
-    print('C3P0')
-    print(has_ortmodule, package_name, version, cuda_version)
     if import_ortmodule_exception:
         raise import_ortmodule_exception
 

@@ -58,6 +58,7 @@ class ORTModuleInitException(ORTModuleFallbackException):
     '''
     pass
 
+
 class ORTModuleDeviceException(ORTModuleFallbackException):
     '''Trigger fallback for device related exceptions
 
@@ -98,6 +99,7 @@ class ORTModuleONNXModelException(ORTModuleFallbackException):
 
     pass
 
+
 class _FallbackManager(object):
     '''Manages fallbacks based on incoming exceptions and specified policies
 
@@ -129,9 +131,9 @@ class _FallbackManager(object):
                                       _FallbackPolicy.FALLBACK_UNSUPPORTED_DEVICE.value: {ORTModuleDeviceException},
                                       _FallbackPolicy.FALLBACK_UNSUPPORTED_INPUT.value: {ORTModuleIOError},
                                       _FallbackPolicy.FALLBACK_UNSUPPORTED_OUTPUT.value: {ORTModuleIOError},
-                                      _FallbackPolicy.FALLBACK_UNSUPPORTED_TORCH_MODEL.value : {ORTModuleTorchModelException},
-                                      _FallbackPolicy.FALLBACK_UNSUPPORTED_ONNX_MODEL.value : {ORTModuleONNXModelException},
-                                      _FallbackPolicy.FALLBACK_BAD_INITIALIZATION.value : {ORTModuleInitException},
+                                      _FallbackPolicy.FALLBACK_UNSUPPORTED_TORCH_MODEL.value: {ORTModuleTorchModelException},
+                                      _FallbackPolicy.FALLBACK_UNSUPPORTED_ONNX_MODEL.value: {ORTModuleONNXModelException},
+                                      _FallbackPolicy.FALLBACK_BAD_INITIALIZATION.value: {ORTModuleInitException},
                                       }
         self._policy = policy
         self._exception = None
@@ -161,7 +163,7 @@ class _FallbackManager(object):
                     (policy.value in self._policy_exception_map and type(exception) in self._policy_exception_map[policy.value]):
 
                 if self._log_level <= _logger.LogLevel.WARNING:
-                    warnings.warn(f'Fallback for policy {policy.name} is now pending.', UserWarning)
+                    warnings.warn(f'Fallback for policy {policy.name} is pending.', UserWarning)
                 self._exception = exception
 
         if policy is None:
