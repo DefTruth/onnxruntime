@@ -10,12 +10,9 @@
 #include <iostream>
 
 #include "TestCase.h"
-#include "TFModelInfo.h"
 #include "utils.h"
 #include "ort_test_session.h"
-#ifdef HAVE_TENSORFLOW
-#include "tf_test_session.h"
-#endif
+
 using onnxruntime::Status;
 
 // TODO: Temporary, while we bring up the threadpool impl...
@@ -246,10 +243,6 @@ static std::unique_ptr<TestModelInfo> CreateModelInfo(const PerformanceTestConfi
 #endif
 
     ORT_NOT_IMPLEMENTED(ToMBString(file_path), " is not supported");
-  }
-
-  if (CompareCString(performance_test_config_.backend.c_str(), ORT_TSTR("tf")) == 0) {
-    return TFModelInfo::Create(performance_test_config_.model_info.model_file_path.c_str());
   }
 
   ORT_NOT_IMPLEMENTED(ToMBString(performance_test_config_.backend), " is not supported");

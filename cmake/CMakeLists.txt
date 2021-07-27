@@ -80,7 +80,6 @@ option(onnxruntime_GCOV_COVERAGE "Compile with options necessary to run code cov
 
 #It's preferred to turn it OFF when onnxruntime is dynamically linked to PROTOBUF. But Tensort always required the full version of protobuf.
 cmake_dependent_option(onnxruntime_USE_FULL_PROTOBUF "Link to libprotobuf instead of libprotobuf-lite when this option is ON" OFF "NOT onnxruntime_USE_TENSORRT" ON)
-option(tensorflow_C_PACKAGE_PATH "Path to tensorflow C package installation dir")
 option(onnxruntime_ENABLE_LANGUAGE_INTEROP_OPS "Enable operator implemented in language other than cpp" OFF)
 option(onnxruntime_DEBUG_NODE_INPUTS_OUTPUTS "Dump debug information about node inputs and outputs when executing the model." OFF)
 option(onnxruntime_USE_DML "Build with DirectML support" OFF)
@@ -1675,7 +1674,7 @@ if(WIN32)
   list(APPEND onnxruntime_EXTERNAL_LIBRARIES debug Dbghelp)
 else()
   list(APPEND onnxruntime_EXTERNAL_LIBRARIES nsync_cpp)
-  list(APPEND onnxruntime_EXTERNAL_LIBRARIES ${CMAKE_DL_LIBS} Threads::Threads)
+  list(APPEND onnxruntime_EXTERNAL_LIBRARIES stdc++fs ${CMAKE_DL_LIBS} Threads::Threads)
 endif()
 
 if (WIN32)

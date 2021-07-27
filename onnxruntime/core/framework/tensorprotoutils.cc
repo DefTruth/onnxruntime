@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <limits>
 #include <gsl/gsl>
+#include <filesystem>
 
 #include "core/common/logging/logging.h"
 #include "core/graph/onnx_protobuf.h"
@@ -558,7 +559,7 @@ static Status GetFileContent(
     void*& raw_buffer, OrtCallback& deleter) {
   // query length if it is 0
   if (length == 0) {
-    ORT_RETURN_IF_ERROR(env.GetFileLength(file_path, length));
+    length = std::filesystem::file_size(file_path);    
   }
 
   // first, try to map into memory

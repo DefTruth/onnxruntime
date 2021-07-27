@@ -219,10 +219,6 @@ class PosixEnv : public Env {
     return getpid();
   }
 
-  Status GetFileLength(const PathChar* file_path, size_t& length) const override {
-    ScopedFileDescriptor file_descriptor{open(file_path, O_RDONLY)};
-    return GetFileLength(file_descriptor.Get(), length);
-  }
 
   common::Status GetFileLength(int fd, /*out*/ size_t& file_size) const override {
     using namespace common;

@@ -187,29 +187,6 @@ class WindowsEnv : public Env {
     return GetCurrentProcessId();
   }
 
-  Status GetFileLength(_In_z_ const ORTCHAR_T* file_path, size_t& length) const override {
-#if WINVER >= _WIN32_WINNT_WIN8
-    wil::unique_hfile file_handle{
-        CreateFile2(file_path, FILE_READ_ATTRIBUTES, FILE_SHARE_READ, OPEN_EXISTING, NULL)};
-#else
-    wil::unique_hfile file_handle{
-        CreateFileW(file_path, FILE_READ_ATTRIBUTES, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL)};
-#endif
-    if (file_handle.get() == INVALID_HANDLE_VALUE) {
-      const auto error_code = GetLastError();
-      return ORT_MAKE_STATUS(ONNXRUNTIME, FAIL, "open file ", ToMBString(Basename(file_path)), " fail, errcode = ", error_code, " - ", std::system_category().message(error_code));
-    }
-    LARGE_INTEGER filesize;
-    if (!GetFileSizeEx(file_handle.get(), &filesize)) {
-      const auto error_code = GetLastError();
-      return ORT_MAKE_STATUS(ONNXRUNTIME, FAIL, "GetFileSizeEx ", ToMBString(Basename(file_path)), " fail, errcode = ", error_code, " - ", std::system_category().message(error_code));
-    }
-    if (static_cast<ULONGLONG>(filesize.QuadPart) > std::numeric_limits<size_t>::max()) {
-      return ORT_MAKE_STATUS(ONNXRUNTIME, FAIL, "GetFileLength: File is too large");
-    }
-    length = static_cast<size_t>(filesize.QuadPart);
-    return Status::OK();
-  }
 
   common::Status GetFileLength(int fd, /*out*/ size_t& file_size) const override {
     using namespace common;

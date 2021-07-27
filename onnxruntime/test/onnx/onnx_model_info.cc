@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+#include <filesystem>
 #include "onnx_model_info.h"
 #include "core/platform/env.h"
 #include "re2/re2.h"
@@ -104,11 +105,9 @@ void OnnxModelInfo::InitOnnxModelInfo(_In_ const PATH_CHAR_TYPE* model_url) {  /
 
 void OnnxModelInfo::InitOrtModelInfo(_In_ const PATH_CHAR_TYPE* model_url) {
   std::vector<uint8_t> bytes;
-  size_t num_bytes = 0;
-  const auto model_location = ToWideString(model_url);
-  ORT_THROW_IF_ERROR(Env::Default().GetFileLength(model_location.c_str(), num_bytes));
+  size_t num_bytes = std::filesystem::file_size(model_url);
   bytes.resize(num_bytes);
-  std::ifstream bytes_stream(model_location, std::ifstream::in | std::ifstream::binary);
+  std::ifstream bytes_stream(model_url, std::ifstream::in | std::ifstream::binary);
   bytes_stream.read(reinterpret_cast<char*>(bytes.data()), num_bytes);
 
   // TODO use ort format version here?
